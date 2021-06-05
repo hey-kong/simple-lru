@@ -44,21 +44,24 @@ impl<T> LinkedList<T> {
     }
 
     pub fn move_to_back(&mut self, node: &Rc<RefCell<LinkedListNode<T>>>) {
-        let prev = node.borrow().prev.clone();
-        let next = node.borrow().next.clone();
-        if let Some(next) = node.borrow().next.as_ref() {
-            next.borrow_mut().prev = prev;
-        } else {
-            self.tail = prev.map(|prev| prev.upgrade().unwrap());
+        let prev = node.borrow_mut().prev.take();
+        let next = node.borrow_mut().next.take();
+        match (prev, next) {
+            (Some(prev), Some(next)) => {
+                prev.upgrade().unwrap().borrow_mut().next = Some(next.clone());
+                next.borrow_mut().prev = Some(prev.clone());
+                self.set_last_node(node);
+            }
+            (Some(_), None) => {
+                // do nothing
+            }
+            (None, Some(next)) => {
+                next.borrow_mut().prev = None;
+                self.head = Some(next);
+                self.set_last_node(node);
+            }
+            (_, _) => (),
         }
-        if let Some(prev) = node.borrow().prev.as_ref() {
-            prev.upgrade().unwrap().borrow_mut().next = next;
-        } else {
-            self.head = next;
-        }
-        node.borrow_mut().prev = None;
-        node.borrow_mut().next = None;
-        self.set_last_node(node);
     }
 
     pub fn remove_front(&mut self) -> Option<Rc<RefCell<LinkedListNode<T>>>> {
